@@ -1,0 +1,917 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Leerklok</title>
+
+  <style>
+    :root {
+      --hour-color: #12337a;   /* donkerblauw: uren / kleine wijzer */
+      --minute-color: #e53935; /* rood: minuten / grote wijzer */
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    .hour-text {
+      color: var(--hour-color);
+    }
+
+    .min-text {
+      color: var(--minute-color);
+    }
+
+    body {
+      margin: 0;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f5f5f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #222;
+    }
+
+    .container {
+      flex: none;
+      transform-origin: center center;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      gap: 50px;
+      padding: 25px;
+    }
+
+    /* RECHTERKANT: digitale klokken + uitspraak */
+    .side {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 440px;
+      max-width: 100%;
+    }
+
+    /* ANALOGE KLOK */
+    .clock {
+      position: relative;
+      width: 440px;
+      height: 440px;
+      background: white;
+      border: 14px solid #111;
+      border-radius: 50%;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+      user-select: none;
+      touch-action: none;
+    }
+
+    /* CIJFERS */
+    .number {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 42px;
+      height: 42px;
+      margin-left: -21px;
+      margin-top: -21px;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      font-size: 30px;
+      font-weight: 600;
+      z-index: 2;
+
+      transform-origin: center center;
+    }
+
+    /* MINUUTSTREEPJES */
+    .tick {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 3px;
+      height: 10px;
+      background: #222;
+      border-radius: 2px;
+
+      transform-origin: 50% 0;
+      z-index: 1;
+    }
+
+    .tick.five {
+      width: 5px;
+      height: 16px;
+    }
+
+    /* WIJZERS */
+    .hand {
+      position: absolute;
+      left: 50%;
+      bottom: 50%;
+      transform-origin: 50% 100%;
+      border-radius: 10px 10px 4px 4px;
+      cursor: grab;
+      z-index: 5;
+      touch-action: none;
+    }
+
+    .hand:active {
+      cursor: grabbing;
+    }
+
+    .hour-hand {
+      width: 15px;
+      height: 112px;
+      background: var(--hour-color);
+      margin-left: -7.5px;
+    }
+
+    .minute-hand {
+      width: 9px;
+      height: 163px;
+      background: var(--minute-color);
+      margin-left: -4.5px;
+    }
+
+    /* MIDDENPUNT */
+    .center-dot {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 22px;
+      height: 22px;
+      margin-left: -11px;
+      margin-top: -11px;
+      border-radius: 50%;
+      background: #111;
+      border: 4px solid white;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    /* DIGITALE KLOKKEN */
+    .digital-container {
+      margin-top: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .digital {
+      min-width: 260px;
+      padding: 12px 25px;
+      border-radius: 14px;
+      text-align: center;
+      font-size: 32px;
+      font-weight: bold;
+      border: 4px solid;
+    }
+
+    .digital.nacht {
+      background: #dcecff;
+      border-color: #3978c7;
+      color: #245b9f;
+    }
+
+    .digital.ochtend {
+      background: #fff4bd;
+      border-color: #e0b500;
+      color: #8a6c00;
+    }
+
+    .digital.middag {
+      background: #dff4d8;
+      border-color: #55a641;
+      color: #347126;
+    }
+
+    .digital.avond {
+      background: #eadcff;
+      border-color: #8654bd;
+      color: #633d91;
+    }
+
+    .period {
+      display: block;
+      margin-top: 2px;
+      font-size: 19px;
+      font-weight: 600;
+    }
+
+    /* UITSPRAAK */
+    .spoken-time {
+      margin-top: 18px;
+      width: 100%;
+      padding: 14px 24px;
+      /* Vaste hoogte voor 2 regels, zodat het vak nooit van hoogte verandert */
+      height: calc(2 * 1.3em + 34px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: 25px;
+      line-height: 1.3;
+      font-weight: 600;
+      background: white;
+      border-radius: 14px;
+      border: 3px solid #555;
+    }
+
+    @media (max-width: 900px) {
+      .container {
+        flex-direction: column;
+        gap: 0;
+      }
+
+      .side {
+        margin-top: 25px;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .clock {
+        width: 340px;
+        height: 340px;
+        border-width: 11px;
+      }
+
+      .number {
+        font-size: 24px;
+        width: 36px;
+        height: 36px;
+        margin-left: -18px;
+        margin-top: -18px;
+      }
+
+      .hour-hand {
+        height: 85px;
+      }
+
+      .minute-hand {
+        height: 125px;
+      }
+
+      .digital {
+        font-size: 26px;
+      }
+
+      .spoken-time {
+        font-size: 21px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+
+    <div class="clock" id="clock">
+
+      <!-- Cijfers en streepjes worden automatisch geplaatst -->
+      <div id="numbers"></div>
+      <div id="ticks"></div>
+
+      <div class="hand hour-hand" id="hourHand"></div>
+      <div class="hand minute-hand" id="minuteHand"></div>
+
+      <div class="center-dot"></div>
+    </div>
+
+    <div class="side">
+
+    <div class="digital-container">
+
+      <div class="digital" id="digital1">
+        <span id="time1"><span class="hour-text">14</span>:<span class="min-text">04</span></span>
+        <span class="period" id="period1"></span>
+      </div>
+
+      <div class="digital" id="digital2">
+        <span id="time2"><span class="hour-text">02</span>:<span class="min-text">04</span></span>
+        <span class="period" id="period2"></span>
+      </div>
+
+    </div>
+
+    <div class="spoken-time">
+      <div id="spokenTime">
+      Het is <span class="min-text">vier</span> minuten over <span class="hour-text">twee</span>.
+      </div>
+    </div>
+
+    </div>
+
+  </div>
+
+
+  <script>
+    /* =========================================================
+       KLOKINSTELLING
+       ========================================================= */
+
+    let hours = 14;
+    let minutes = 4;
+
+    let previousMinute = minutes;
+
+
+    /* =========================================================
+       CIJFERS
+       ========================================================= */
+
+    const numbersContainer = document.getElementById("numbers");
+
+    const clockNumbers = [
+      "12", "1", "2", "3", "4", "5",
+      "6", "7", "8", "9", "10", "11"
+    ];
+
+    clockNumbers.forEach((number, index) => {
+
+      const angle = index * 30;
+
+      const numberElement = document.createElement("div");
+      numberElement.className = "number";
+      numberElement.textContent = number;
+
+      /*
+        De straal is iets kleiner gemaakt zodat de cijfers
+        netjes binnen de zwarte rand blijven.
+      */
+      numberElement.style.transform =
+        `rotate(${angle}deg) translateY(-157px) rotate(-${angle}deg)`;
+
+      numbersContainer.appendChild(numberElement);
+    });
+
+
+    /* =========================================================
+       PRECIES 60 MINUUTSTREEPJES
+       ========================================================= */
+
+    const ticksContainer = document.getElementById("ticks");
+
+    for (let minute = 0; minute < 60; minute++) {
+
+      const tick = document.createElement("div");
+      tick.className = "tick";
+
+      if (minute % 5 === 0) {
+        tick.classList.add("five");
+      }
+
+      /*
+        Elk streepje staat exact 6 graden van het vorige.
+        De straal is iets kleiner gemaakt zodat ook de
+        onderste streepjes netjes binnen de cirkel blijven.
+      */
+      tick.style.transform =
+        `rotate(${minute * 6}deg) translateY(-191px)`;
+
+      ticksContainer.appendChild(tick);
+    }
+
+
+    /* =========================================================
+       ELEMENTEN
+       ========================================================= */
+
+    const hourHand = document.getElementById("hourHand");
+    const minuteHand = document.getElementById("minuteHand");
+
+    const time1 = document.getElementById("time1");
+    const time2 = document.getElementById("time2");
+
+    const period1 = document.getElementById("period1");
+    const period2 = document.getElementById("period2");
+
+    const digital1 = document.getElementById("digital1");
+    const digital2 = document.getElementById("digital2");
+
+    const spokenTime = document.getElementById("spokenTime");
+
+
+    /* =========================================================
+       HULPFUNCTIES
+       ========================================================= */
+
+    function pad(number) {
+      return String(number).padStart(2, "0");
+    }
+
+    function hourSpan(text) {
+      return `<span class="hour-text">${text}</span>`;
+    }
+
+    function minSpan(text) {
+      return `<span class="min-text">${text}</span>`;
+    }
+
+
+    function getPeriod(hour) {
+
+      if (hour >= 0 && hour < 6) {
+        return "Nacht";
+      }
+
+      if (hour >= 6 && hour < 12) {
+        return "Ochtend";
+      }
+
+      if (hour >= 12 && hour < 18) {
+        return "Middag";
+      }
+
+      return "Avond";
+    }
+
+
+    function getPeriodClass(hour) {
+
+      if (hour >= 0 && hour < 6) {
+        return "nacht";
+      }
+
+      if (hour >= 6 && hour < 12) {
+        return "ochtend";
+      }
+
+      if (hour >= 12 && hour < 18) {
+        return "middag";
+      }
+
+      return "avond";
+    }
+
+
+    function hourName(hour) {
+
+      const names = [
+        "twaalf",
+        "één",
+        "twee",
+        "drie",
+        "vier",
+        "vijf",
+        "zes",
+        "zeven",
+        "acht",
+        "negen",
+        "tien",
+        "elf"
+      ];
+
+      return names[hour % 12];
+    }
+
+
+    function numberName(number) {
+
+      const names = {
+        1: "één",
+        2: "twee",
+        3: "drie",
+        4: "vier",
+        5: "vijf",
+        6: "zes",
+        7: "zeven",
+        8: "acht",
+        9: "negen",
+        10: "tien",
+        11: "elf",
+        12: "twaalf",
+        13: "dertien",
+        14: "veertien",
+        15: "vijftien",
+        16: "zestien",
+        17: "zeventien",
+        18: "achttien",
+        19: "negentien",
+        20: "twintig",
+        21: "eenentwintig",
+        22: "tweeëntwintig",
+        23: "drieëntwintig",
+        24: "vierentwintig",
+        25: "vijfentwintig",
+        26: "zesentwintig",
+        27: "zevenentwintig",
+        28: "achtentwintig",
+        29: "negenentwintig"
+      };
+
+      return names[number] || String(number);
+    }
+
+
+    /* =========================================================
+       TIJD UITSPREKEN
+       ========================================================= */
+
+    function getSpokenTime(hour, minute) {
+
+      /*
+        Voor het uitspreken gebruiken we de 12-uurs klok.
+        Bijvoorbeeld:
+        14:04 -> vier minuten over twee
+        16:25 -> vijf minuten voor half vijf
+        18:40 -> tien over half zeven
+      */
+
+      const h = hour % 12;
+
+      const currentHourName = hourSpan(hourName(h));
+
+      const nextHour = (h + 1) % 12;
+      const nextHourName = hourSpan(hourName(nextHour));
+
+   /* 00 minuten */
+if (minute === 0) {
+  return `Het is ${currentHourName} uur.`;
+}
+
+      /* 01 t/m 14 minuten */
+      if (minute >= 1 && minute <= 14) {
+
+        if (minute === 1) {
+          return `Het is ${minSpan("één")} minuut over ${currentHourName}.`;
+        }
+
+        return `Het is ${minSpan(numberName(minute))} minuten over ${currentHourName}.`;
+      }
+  /* 15 minuten */
+      if (minute === 15) {
+        return `Het is ${minSpan("kwart")} over ${currentHourName}.`;
+      }
+
+      /* 16 t/m 29 minuten */
+      if (minute >= 16 && minute <= 29) {
+
+        const beforeHalf = 30 - minute;
+
+        if (beforeHalf === 1) {
+          return `Het is ${minSpan("één")} minuut voor half ${nextHourName}.`;
+        }
+
+        return `Het is ${minSpan(numberName(beforeHalf))} minuten voor half ${nextHourName}.`;
+      }
+    
+      /* 30 minuten */
+      if (minute === 30) {
+        return `Het is half ${nextHourName}.`;
+      }
+
+      /* 31 t/m 37 minuten */
+      if (minute >= 31 && minute <= 37) {
+
+        const afterHalf = minute - 30;
+
+        if (afterHalf === 1) {
+          return `Het is ${minSpan("één")} minuut over half ${nextHourName}.`;
+        }
+
+        return `Het is ${minSpan(numberName(afterHalf))} minuten over half ${nextHourName}.`;
+      }
+
+      /* 38 t/m 44 minuten */
+      if (minute >= 38 && minute <= 44) {
+
+        const afterHalf = minute - 30;
+
+        return `Het is ${minSpan(numberName(afterHalf))} minuten over half ${nextHourName}.`;
+      }
+
+      /* 45 minuten */
+      if (minute === 45) {
+        return `Het is ${minSpan("kwart")} voor ${nextHourName}.`;
+      }
+
+      /* 46 t/m 52 minuten */
+      if (minute >= 46 && minute <= 52) {
+
+        const beforeHour = 60 - minute;
+
+        if (beforeHour === 1) {
+          return `Het is ${minSpan("één")} minuut voor ${nextHourName}.`;
+        }
+
+        return `Het is ${minSpan(numberName(beforeHour))} minuten voor ${nextHourName}.`;
+      }
+
+      /* 53 t/m 59 minuten */
+      if (minute >= 53 && minute <= 59) {
+
+        const beforeHour = 60 - minute;
+
+        if (beforeHour === 1) {
+          return `Het is ${minSpan("één")} minuut voor ${nextHourName}.`;
+        }
+
+        return `Het is ${minSpan(numberName(beforeHour))} minuten voor ${nextHourName}.`;
+      }
+
+      return "";
+    }
+
+
+    /* =========================================================
+       KLOK BIJWERKEN
+       ========================================================= */
+
+    function updateClock() {
+
+      /* Kleine wijzer beweegt geleidelijk mee */
+      const hourAngle =
+        ((hours % 12) * 30) + (minutes * 0.5);
+
+      /* Grote wijzer */
+      const minuteAngle =
+        minutes * 6;
+
+      hourHand.style.transform =
+        `rotate(${hourAngle}deg)`;
+
+      minuteHand.style.transform =
+        `rotate(${minuteAngle}deg)`;
+
+
+      /* Digitale tijden */
+      const secondHour =
+        (hours + 12) % 24;
+
+      const times = [
+        {
+          hour: hours,
+          element: 1
+        },
+        {
+          hour: secondHour,
+          element: 2
+        }
+      ];
+
+      times.sort((a, b) => a.hour - b.hour);
+
+
+      const first = times[0];
+      const second = times[1];
+
+
+      time1.innerHTML =
+        `${hourSpan(pad(first.hour))}:${minSpan(pad(minutes))}`;
+
+      time2.innerHTML =
+        `${hourSpan(pad(second.hour))}:${minSpan(pad(minutes))}`;
+
+
+      period1.textContent =
+        getPeriod(first.hour);
+
+      period2.textContent =
+        getPeriod(second.hour);
+
+
+      digital1.className =
+        "digital " + getPeriodClass(first.hour);
+
+      digital2.className =
+        "digital " + getPeriodClass(second.hour);
+
+
+      /* Uitspraak */
+      spokenTime.innerHTML =
+        getSpokenTime(hours, minutes);
+    }
+
+
+    /* =========================================================
+       MINUUTWIJZER SLEPEN
+       ========================================================= */
+
+    let draggingMinute = false;
+    let draggingHour = false;
+
+
+    function getAngleFromPointer(event) {
+
+      const rect =
+        document.getElementById("clock").getBoundingClientRect();
+
+      const centerX =
+        rect.left + rect.width / 2;
+
+      const centerY =
+        rect.top + rect.height / 2;
+
+      const x =
+        event.clientX - centerX;
+
+      const y =
+        event.clientY - centerY;
+
+      let angle =
+        Math.atan2(y, x) * 180 / Math.PI + 90;
+
+      if (angle < 0) {
+        angle += 360;
+      }
+
+      return angle;
+    }
+
+
+    function moveMinuteHand(event) {
+
+      if (!draggingMinute) return;
+
+      const angle =
+        getAngleFromPointer(event);
+
+      const newMinute =
+        Math.round(angle / 6) % 60;
+
+
+      /*
+        Detecteer het passeren van 12.
+
+        59 -> 00:
+        grote wijzer gaat vooruit en kleine wijzer
+        gaat naar het volgende uur.
+
+        00 -> 59:
+        grote wijzer gaat achteruit en kleine wijzer
+        gaat naar het vorige uur.
+      */
+
+      let delta =
+        newMinute - previousMinute;
+
+      if (delta > 30) {
+        delta -= 60;
+      }
+
+      if (delta < -30) {
+        delta += 60;
+      }
+
+      if (
+        previousMinute >= 45 &&
+        newMinute <= 15 &&
+        delta > 0
+      ) {
+        hours =
+          (hours + 1) % 24;
+      }
+
+      else if (
+        previousMinute <= 15 &&
+        newMinute >= 45 &&
+        delta < 0
+      ) {
+        hours =
+          (hours - 1 + 24) % 24;
+      }
+
+
+      minutes =
+        newMinute;
+
+      previousMinute =
+        newMinute;
+
+      updateClock();
+    }
+
+
+    /* =========================================================
+       UURWIJZER SLEPEN
+       ========================================================= */
+
+    function moveHourHand(event) {
+
+      if (!draggingHour) return;
+
+      const angle =
+        getAngleFromPointer(event);
+
+      let newHour =
+        Math.round(angle / 30) % 12;
+
+      if (newHour === 0) {
+        newHour = 12;
+      }
+
+      /*
+        Behoud de 12-uurshelft waarin we zaten.
+      */
+
+      if (hours >= 12) {
+
+        hours =
+          newHour === 12
+            ? 12
+            : newHour + 12;
+
+      } else {
+
+        hours =
+          newHour === 12
+            ? 0
+            : newHour;
+      }
+
+      updateClock();
+    }
+
+
+    /* =========================================================
+       POINTER EVENTS
+       ========================================================= */
+
+    minuteHand.addEventListener("pointerdown", event => {
+
+      draggingMinute = true;
+
+      minuteHand.setPointerCapture(event.pointerId);
+
+      event.preventDefault();
+    });
+
+
+    hourHand.addEventListener("pointerdown", event => {
+
+      draggingHour = true;
+
+      hourHand.setPointerCapture(event.pointerId);
+
+      event.preventDefault();
+    });
+
+
+    minuteHand.addEventListener("pointermove", moveMinuteHand);
+    hourHand.addEventListener("pointermove", moveHourHand);
+
+
+    minuteHand.addEventListener("pointerup", () => {
+      draggingMinute = false;
+    });
+
+    hourHand.addEventListener("pointerup", () => {
+      draggingHour = false;
+    });
+
+
+    minuteHand.addEventListener("pointercancel", () => {
+      draggingMinute = false;
+    });
+
+    hourHand.addEventListener("pointercancel", () => {
+      draggingHour = false;
+    });
+
+
+    /* =========================================================
+       START
+       ========================================================= */
+
+    updateClock();
+
+
+    /* =========================================================
+       SCHALEN NAAR HET SCHERM (digibord)
+       Alles wordt samen vergroot, maximaal 2,5 keer, zo groot
+       als past zodat er niet gescrold hoeft te worden.
+       ========================================================= */
+
+    const MAX_SCALE = 2.5;
+
+    function fitToScreen() {
+
+      const container = document.querySelector(".container");
+
+      container.style.transform = "none";
+
+      const scale = Math.min(
+        MAX_SCALE,
+        window.innerWidth / container.offsetWidth,
+        window.innerHeight / container.offsetHeight
+      );
+
+      container.style.transform = `scale(${scale})`;
+    }
+
+    window.addEventListener("resize", fitToScreen);
+    window.addEventListener("load", fitToScreen);
+    fitToScreen();
+
+  </script>
+
+</body>
+</html>
